@@ -1,0 +1,70 @@
+version: '3.3'
+services:
+  mysql:
+    image: mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: 'test'
+      MYSQL_USER: 'root'
+      MYSQL_ROOT_PASSWORD: 'password'
+    volumes:
+      - /var/lib/mysql:/var/lib/mysql
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+  
+  jdk-test:
+    build:
+      context: .
+      dockerfile: dockerfile
+    ports:
+      - '8081:8080'
+    expose:
+      - '8081'
+    links:
+      - mysql:mysql
+    depends_on:
+      - mysql
+
+  jdk-test2:
+    build:
+      context: .
+      dockerfile: dockerfile
+    ports:
+      - '8082:8080'
+    expose:
+      - '8082'
+    links:
+      - mysql:mysql
+    depends_on:
+      - jdk-test
+    healthcheck:
+      test: 'curl -f http://localhost:8081/test/thread'
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  nginx:
+    #build:
+    #  context: .
+    #  dockerfile: dockerfile_nginx
+    image: nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - '80:80'
+    expose:
+      - '80'
+    links:
+      - jdk-test:jdk-test
+      - jdk-test2:jdk-test2
+    depends_on:
+      - mysql
+      - jdk-test
+      - jdk-test2
+    healthcheck:
+      test: 'curl -f http://localhost:8082/test/thread'
+      interval: 30s
+      timeout: 30s
+      retries: 5
